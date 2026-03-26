@@ -1448,7 +1448,7 @@ async function saveNewVendor(){
   const colorIdx=USERS.filter(u=>u.vendor_id).length%COLORS_POOL.length;
   const cd=COLORS_POOL[colorIdx];
   try{
-    const r=await POST('vendors',{id,name,ini,color:cd.color,meta,pin});
+    const r=await POST('vendors',{id,name,ini,color:cd.color,meta,pin,role});
     vendors.push(r[0]);
     USERS.push({id,name,role,vendor_id:id,pin,ini,color:cd.color,avStyle:cd.avStyle,active:true});
     cm('ov2');render();renderLogin();toast(name+' adicionado!');
@@ -1468,7 +1468,7 @@ async function saveEditVendor(uid){
   const role=document.getElementById('ev-role').value;
   if(!name||ini.length!==2||!/^\d{4}$/.test(pin)){toast('Verifique os campos','err');return;}
   try{
-    await PATCH('vendors?id=eq.'+uid,{name,ini,meta});
+    await PATCH('vendors?id=eq.'+uid,{name,ini,meta,role});
     const v=vendors.find(x=>x.id===uid);v.name=name;v.ini=ini;v.meta=meta;
     const u=USERS.find(x=>x.id===uid);u.name=name;u.ini=ini;u.pin=pin;u.role=role;
     cm('ov2');render();renderLogin();toast('Vendedor atualizado!');
@@ -1774,8 +1774,9 @@ function editLeadName(id){
     vendors_db.forEach(function(v){
       const existing=USERS.find(x=>x.vendor_id===v.id);
       if(existing){
-        // Atualizar PIN do banco
+        // Atualizar PIN e role do banco
         if(v.pin&&String(v.pin).length===4) existing.pin=String(v.pin);
+        if(v.role) existing.role=v.role;
         // Atualizar nome e ini
         existing.name=v.name;
         existing.ini=v.ini||existing.ini;
@@ -1786,8 +1787,10 @@ function editLeadName(id){
         USERS.push({
           id:v.id,name:v.name,role:'vendor',vendor_id:v.id,
           pin:v.pin&&String(v.pin).length===4?String(v.pin):'0000',
+          role:v.role||'vendor',
           ini:v.ini||v.name.slice(0,2).toUpperCase(),
-          color:v.color||cd.color,avStyle:v.avStyle||cd.avStyle,active:true
+          color:v.color||cd.color,avStyle:v.avStyle||cd.avStyle,
+          role:v.role||'vendor',active:true
         });
       }
     });
