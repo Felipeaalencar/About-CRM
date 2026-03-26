@@ -944,11 +944,10 @@ function openLead(id){
       </div>
     </div>
     <div class="field"><div class="field-label">Serviço</div>
-      <select id="lsvc" ${canEdit?'':'disabled'}>${SERVICES.map(s=>`<option${s===l.service?' selected':''}>${s}</option>`).join('')}</select></div>
-    <div id="lead-pkg-field" style="display:none">
-      <div class="field"><div class="field-label">Itens do pacote</div>
-        <div id="lead-pkg-tags">${renderLeadPkgTags(l.service==='Pacote de Tecnologia'?l.service:'')}</div>
-      </div>
+      <select id="lsvc" onchange="onServiceChange(this.value)">${SERVICES.map(s=>`<option${s===l.service?' selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="field" id="pkg-field" style="display:${l.service==='Pacote de Tecnologia'?'block':'none'}">
+      <div class="field-label">Itens do pacote</div>
+      <div id="pkg-tags-wrap">${renderPkgTags()}</div>
     </div>
     <div class="field"><div class="field-label">Vendedor</div>
       <select id="lv">${vendors.map(v=>`<option value="${v.id}"${v.id===l.vendor_id?' selected':''}>${v.name}</option>`).join('')}</select></div>
@@ -973,8 +972,7 @@ function openLead(id){
         return '<div class="hist-item" style="'+extra+'"><span class="hist-type '+(ACT_CLS[n.type]||'ht-note')+'">'+(isClosed?'🤝 Fechado':isLoss?'❌ Perda':n.type)+'</span><span class="hist-text">'+n.text+'</span></div>';
       }).join('')}</div>`:''}`;
   document.getElementById('ov1').classList.add('on');
-  // Inicializar campo de pacote se necessário
-  onLeadServiceChange(l.service);
+  setTimeout(function(){onServiceChange(document.getElementById('lsvc')?.value||'');},50);
 }
 
 async function saveCollabNote(id){
@@ -1817,7 +1815,16 @@ function acSelect(data){
 // ─── LEAD SERVICE CHANGE ─────────────────────────────
 function onLeadServiceChange(val){
   const pkgField=document.getElementById('lead-pkg-field');
-  if(pkgField) pkgField.style.display=val==='Pacote de Tecnologia'?'block':'none';
+  if(!pkgField) return;
+  if(val==='Pacote de Tecnologia'){
+    pkgField.style.display='block';
+    const tagsEl=document.getElementById('lead-pkg-tags');
+    if(tagsEl&&!tagsEl.querySelector('.tag-item')){
+      tagsEl.innerHTML=renderLeadPkgTags('');
+    }
+  } else {
+    pkgField.style.display='none';
+  }
 }
 
 function renderLeadPkgTags(currentService){
