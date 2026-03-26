@@ -298,6 +298,7 @@ textarea{resize:vertical;min-height:65px}
       <button class="nav-item admin-only" id="nav-alerts" onclick="goPage('alerts',this)"><span class="nav-icon">◎</span>Alertas <span id="alert-badge" style="margin-left:auto;font-size:10px;background:var(--red-bg);color:var(--red);padding:1px 6px;border-radius:9px"></span></button>
       <button class="nav-item admin-only" id="nav-clients" onclick="goPage('clients',this)"><span class="nav-icon">◷</span>Clientes</button>
       <button class="nav-item admin-only" id="nav-financeiro" onclick="goPage('financeiro',this)"><span class="nav-icon">💰</span>Financeiro</button>
+      <button class="nav-item admin-only" id="nav-perdidos" onclick="goPage('perdidos',this)"><span class="nav-icon">📉</span>Leads Perdidos</button>
       <div class="nav-sep" style="margin:8px 0"></div>
       <button class="nav-item" id="nav-game" onclick="goPage('game',this)"><span class="nav-icon">🏆</span>Ranking</button>
       <button class="nav-item" id="nav-comissoes" onclick="goPage('comissoes',this)"><span class="nav-icon">💵</span>Comissões</button>
@@ -339,8 +340,12 @@ textarea{resize:vertical;min-height:65px}
 
     <div class="page" id="page-pipeline">
       <div class="page-header">
-        <div><div class="page-title">Pipeline</div><div class="page-sub" id="pipeline-sub">Todos os leads</div></div>
-        <button class="btn btn-primary" onclick="openNew()">+ Novo lead</button>
+        <div><div class="page-title">Pipeline</div><div class="page-sub" id="pipeline-sub">Todos os leads · edição apenas dos seus</div></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="pipeline-search" placeholder="🔍 Buscar lead..." oninput="render()"
+            style="font-size:12px;padding:7px 12px;border:1px solid var(--border2);border-radius:7px;background:var(--bg3);color:var(--text);width:180px">
+          <button class="btn btn-primary" onclick="openNew()">+ Novo lead</button>
+        </div>
       </div>
       <div id="pipeline-wrap"></div>
     </div>
@@ -390,6 +395,27 @@ textarea{resize:vertical;min-height:65px}
       <div class="section">
         <div class="section-header"><div><div class="section-title">Projeção — próximos 6 meses</div><div class="section-sub">MRR garantido + forecast realista</div></div></div>
         <div style="position:relative;height:200px;margin-top:8px"><canvas id="finChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="page" id="page-perdidos">
+      <div class="page-header">
+        <div><div class="page-title">📉 Leads Perdidos</div><div class="page-sub" id="perd-sub">Análise de motivos</div></div>
+      </div>
+      <div class="stat-grid" id="perd-stats" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:16px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div class="section">
+          <div class="section-header"><div><div class="section-title">Motivos de perda</div><div class="section-sub">Ranking dos principais motivos</div></div></div>
+          <div id="perd-motivos"></div>
+        </div>
+        <div class="section">
+          <div class="section-header"><div><div class="section-title">Perdas por vendedor</div><div class="section-sub">Quem está perdendo mais</div></div></div>
+          <div id="perd-vendedores"></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-header"><div><div class="section-title">Lista completa de leads perdidos</div></div></div>
+        <div id="perd-lista"></div>
       </div>
     </div>
 
@@ -606,7 +632,7 @@ const STAGES=['Novo lead','Em contato','Proposta enviada','Negociação','Fechad
 const LOSS_REASONS=['Preço alto','Escolheu concorrente','Sem verba no momento','Sem retorno / sumiu','Não tinha interesse real','Outro'];
 const SERVICES=['Portaria Virtual','Portaria Autônoma','Seg. Armada','Seg. Eletrônica','Drone','Controle Acesso','Pacote de Tecnologia'];
 const EMPRESAS=['SHIELD','Connection'];
-const ORIGINS=['WhatsApp','Instagram','Indicação'];
+const ORIGINS=['WhatsApp','Instagram','Indicação','Site','LinkedIn','Ligação fria','Evento','Outro'];
 const ORIGIN_COLORS={'WhatsApp':'#22c55e','Instagram':'#a855f7','Indicação':'#f59e0b'};
 const ACT_TYPES=['Anotação','Ligação','Proposta enviada','Reunião','Pedido Fechado'];
 const ACT_CLS={'Anotação':'ht-note','Ligação':'ht-call','Proposta enviada':'ht-proposal','Reunião':'ht-meeting','Pedido Fechado':'ht-closed','Perda':'ht-loss'};
@@ -629,7 +655,16 @@ function toast(msg,type='ok'){
 }
 
 // Filtro de leads por perfil
-function visibleLeads(){ return leads; }
+function visibleLeads(){
+  const q=(document.getElementById('pipeline-search')?.value||'').toLowerCase().trim();
+  if(!q) return leads;
+  return leads.filter(l=>
+    l.name.toLowerCase().includes(q)||
+    (l.service||'').toLowerCase().includes(q)||
+    (l.origin||'').toLowerCase().includes(q)||
+    (l.empresa||'').toLowerCase().includes(q)
+  );
+}
 
 async function loadAll(){
   try{
@@ -668,7 +703,10 @@ async function loadAll(){
   }catch(e){toast('Erro ao carregar: '+e.message,'err');}
 }
 
-function render(){rDashboard();rPipeline();rVendors();rAlerts();rClients();rSettings();rGame();rComissoes();rGame();rComissoes();
+function render(){rDashboard();rPipeline();rVendors();rAlerts();rClients();rSettings();rGame();rComissoes();rPerdidos();
+  // Badge na aba do navegador
+  const urgCount=leads.filter(isUrgent).length;
+  document.title=urgCount>0?'('+urgCount+') SHIELD CRM':'SHIELD CRM';rGame();rComissoes();
   const uc=leads.filter(isUrgent).length;
   document.getElementById('alert-badge').textContent=uc||'';
 }
@@ -881,9 +919,22 @@ function openLead(id){
   const canEdit=canEditLead(l);
   const v=gv(l.vendor_id);
   document.getElementById('modal1').innerHTML=`
-    <div class="modal-hd"><div><div class="modal-title">${l.name}</div><div class="modal-sub">${l.empresa?l.empresa+' · ':''}${l.service} · ${l.origin} · ${fmt(l.ticket)}/mês</div></div>
+    <div class="modal-hd"><div><div class="modal-title" id="lead-name-display" onclick="editLeadName(${l.id})" title="Clique para editar" style="cursor:pointer">${l.name} <span style="font-size:11px;color:var(--text3)">✏️</span></div><div class="modal-sub">${l.empresa?l.empresa+' · ':''}${l.service} · ${l.origin} · ${fmt(l.ticket)}/mês${l.created_at?' · desde '+new Date(l.created_at).toLocaleDateString('pt-BR'):''}</div></div>
     <button class="close-btn" onclick="cm('ov1')">✕</button></div>
     ${canEdit?`
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📋 Dados do cliente</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="field" style="margin:0"><div class="field-label">CPF / CNPJ</div>
+          <input id="lc-doc" value="${l.cpf_cnpj||''}" placeholder="Ex: 12.345.678/0001-90" ${canEdit?'':'disabled'}></div>
+        <div class="field" style="margin:0"><div class="field-label">Telefone</div>
+          <input id="lc-tel" value="${l.telefone||''}" placeholder="Ex: 48 99999-9999" ${canEdit?'':'disabled'}></div>
+        <div class="field" style="margin:0"><div class="field-label">E-mail</div>
+          <input id="lc-email" value="${l.email||''}" placeholder="Ex: contato@empresa.com" ${canEdit?'':'disabled'}></div>
+        <div class="field" style="margin:0"><div class="field-label">Endereço</div>
+          <input id="lc-end" value="${l.endereco||''}" placeholder="Ex: Rua das Flores, 123" ${canEdit?'':'disabled'}></div>
+      </div>
+    </div>
     <div class="field"><div class="field-label">Vendedor</div>
       <select id="lv">${vendors.map(v=>`<option value="${v.id}"${v.id===l.vendor_id?' selected':''}>${v.name}</option>`).join('')}</select></div>
     <div class="field"><div class="field-label">Empresa</div>
@@ -980,8 +1031,12 @@ async function saveLead(id){
   }
 
   try{
-    await PATCH('leads?id=eq.'+id,{stage,next_contact:next,vendor_id,empresa,days:0,updated_at:new Date().toISOString()});
-    const l=leads.find(x=>x.id===id);l.stage=stage;l.next_contact=next;l.vendor_id=vendor_id;l.empresa=empresa;l.days=0;
+    const cpf_cnpj=document.getElementById('lc-doc')?.value||'';
+    const telefone=document.getElementById('lc-tel')?.value||'';
+    const email=document.getElementById('lc-email')?.value||'';
+    const endereco=document.getElementById('lc-end')?.value||'';
+    await PATCH('leads?id=eq.'+id,{stage,next_contact:next,vendor_id,empresa,cpf_cnpj,telefone,email,endereco,days:0,updated_at:new Date().toISOString()});
+    const l=leads.find(x=>x.id===id);l.stage=stage;l.next_contact=next;l.vendor_id=vendor_id;l.empresa=empresa;l.cpf_cnpj=cpf_cnpj;l.telefone=telefone;l.email=email;l.endereco=endereco;l.days=0;
     if(txt){const n=await POST('lead_notes',{lead_id:id,type,text:txt});if(!notes[id])notes[id]=[];notes[id].push(n[0]);}
     cm('ov1');render();toast('Lead atualizado');
   }catch(e){toast('Erro: '+e.message,'err');}
@@ -1059,6 +1114,7 @@ function goPage(name,btn){
   if(name==='comissoes') rComissoes();
   if(name==='game') rGame();
   if(name==='financeiro') rFinanceiro();
+  if(name==='perdidos') rPerdidos();
 }
 function cm(id){document.getElementById(id).classList.remove('on');}
 function closeOv(id){cm(id);}
@@ -1578,8 +1634,152 @@ function _rFinChart(forecast, mrrReal){
     }
   });
 }
+// ─── LEADS PERDIDOS ──────────────────────────────────
+function rPerdidos(){
+  const perdidos=leads.filter(l=>l.stage==='Perdido');
+  const now=new Date();
+  const subEl=document.getElementById('perd-sub');
+  if(subEl) subEl.textContent=perdidos.length+' lead'+(perdidos.length!==1?'s':'')+' perdido'+(perdidos.length!==1?'s':'');
+
+  // Stats
+  const statsEl=document.getElementById('perd-stats');
+  if(statsEl){
+    const totalTicket=perdidos.reduce((a,l)=>a+(l.ticket||0),0);
+    const shieldPerd=perdidos.filter(l=>l.empresa==='SHIELD').length;
+    const connPerd=perdidos.filter(l=>l.empresa==='Connection').length;
+    statsEl.innerHTML=
+      '<div class="stat-card" style="border-left:2px solid var(--red)"><div class="stat-label">Total perdidos</div><div class="stat-val red">'+perdidos.length+'</div><div class="stat-delta">leads no funil perdido</div></div>'+
+      '<div class="stat-card"><div class="stat-label">Valor perdido</div><div class="stat-val amber">'+fmt(totalTicket)+'/mês</div><div class="stat-delta">receita que não veio</div></div>'+
+      '<div class="stat-card"><div class="stat-label">SHIELD perdidos</div><div class="stat-val">'+shieldPerd+'</div><div class="stat-delta">de '+perdidos.length+' total</div></div>'+
+      '<div class="stat-card"><div class="stat-label">Connection perdidos</div><div class="stat-val">'+connPerd+'</div><div class="stat-delta">de '+perdidos.length+' total</div></div>';
+  }
+
+  // Motivos
+  const motivosEl=document.getElementById('perd-motivos');
+  if(motivosEl){
+    const motivoMap={};
+    perdidos.forEach(l=>{
+      const nota=(notes[l.id]||[]).slice().reverse().find(n=>n.type==='Perda');
+      const motivo=nota?nota.text:'Sem motivo registrado';
+      motivoMap[motivo]=(motivoMap[motivo]||0)+1;
+    });
+    const sorted=Object.entries(motivoMap).sort((a,b)=>b[1]-a[1]);
+    const max=sorted.length>0?sorted[0][1]:1;
+    if(sorted.length===0){
+      motivosEl.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Nenhum lead perdido ainda</div>';
+    } else {
+      motivosEl.innerHTML=sorted.map(([motivo,count])=>{
+        const pct=Math.round(count/max*100);
+        const pctTotal=perdidos.length>0?Math.round(count/perdidos.length*100):0;
+        return '<div style="margin-bottom:12px">'+
+          '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">'+
+            '<span style="color:var(--text2)">'+motivo+'</span>'+
+            '<span style="font-weight:600;color:var(--red)">'+count+'x ('+pctTotal+'%)</span>'+
+          '</div>'+
+          '<div style="height:8px;background:var(--bg3);border-radius:4px;overflow:hidden">'+
+            '<div style="height:8px;width:'+pct+'%;background:var(--red);border-radius:4px;transition:width .5s"></div>'+
+          '</div>'+
+        '</div>';
+      }).join('');
+    }
+  }
+
+  // Perdas por vendedor
+  const vendEl=document.getElementById('perd-vendedores');
+  if(vendEl){
+    const vendMap={};
+    perdidos.forEach(l=>{
+      const v=gv(l.vendor_id);
+      vendMap[v.name]=(vendMap[v.name]||0)+1;
+    });
+    const sorted=Object.entries(vendMap).sort((a,b)=>b[1]-a[1]);
+    if(sorted.length===0){
+      vendEl.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Nenhum dado ainda</div>';
+    } else {
+      const max=sorted[0][1];
+      vendEl.innerHTML=sorted.map(([nome,count])=>{
+        const u=USERS.find(x=>x.name===nome);
+        const pct=Math.round(count/max*100);
+        const pctTotal=perdidos.length>0?Math.round(count/perdidos.length*100):0;
+        return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'+
+          '<div class="av" style="'+(u?u.avStyle:'background:rgba(99,99,99,.2);color:#999')+';flex-shrink:0">'+nome.slice(0,2).toUpperCase()+'</div>'+
+          '<div style="flex:1">'+
+            '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">'+
+              '<span>'+nome+'</span>'+
+              '<span style="color:var(--red);font-weight:600">'+count+' perdido'+(count!==1?'s':'')+'</span>'+
+            '</div>'+
+            '<div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">'+
+              '<div style="height:6px;width:'+pct+'%;background:var(--red);border-radius:3px"></div>'+
+            '</div>'+
+          '</div>'+
+        '</div>';
+      }).join('');
+    }
+  }
+
+  // Lista completa
+  const listaEl=document.getElementById('perd-lista');
+  if(listaEl){
+    if(perdidos.length===0){
+      listaEl.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Nenhum lead perdido ainda 🎉</div>';
+    } else {
+      listaEl.innerHTML=perdidos.map(l=>{
+        const v=gv(l.vendor_id);
+        const nota=(notes[l.id]||[]).slice().reverse().find(n=>n.type==='Perda');
+        return '<div class="com-row">'+
+          '<div style="flex:1;min-width:0">'+
+            '<div class="com-cliente">'+l.name+'</div>'+
+            '<div class="com-service">'+l.service+(nota?' · <span style="color:var(--red)">'+nota.text+'</span>':'')+'</div>'+
+          '</div>'+
+          '<span class="com-vendedor-badge">'+v.name+'</span>'+
+          '<div style="text-align:right;flex-shrink:0;font-size:12px;color:var(--text3)">'+
+            (l.ticket?fmt(l.ticket)+'/mês':'sem valor')+
+          '</div>'+
+        '</div>';
+      }).join('');
+    }
+  }
+}
+
+// ─── EDIT LEAD NAME ──────────────────────────────────
+function editLeadName(id){
+  const l=leads.find(x=>x.id===id);
+  if(!canEditLead(l)){toast('Você só pode editar leads atribuídos a você','err');return;}
+  const display=document.getElementById('lead-name-display');
+  if(!display)return;
+  const input=document.createElement('input');
+  input.value=l.name;
+  input.style.cssText='font-size:18px;font-weight:600;width:100%;background:var(--bg3);border:1px solid var(--blue);border-radius:6px;padding:4px 8px;color:var(--text);outline:none';
+  display.replaceWith(input);
+  input.focus();input.select();
+  async function saveName(){
+    const newName=input.value.trim();
+    if(!newName){input.focus();return;}
+    try{
+      await PATCH('leads?id=eq.'+id,{name:newName,updated_at:new Date().toISOString()});
+      l.name=newName;
+      render();
+      toast('Nome atualizado!');
+    }catch(e){toast('Erro ao salvar','err');}
+  }
+  input.addEventListener('blur',saveName);
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.value=l.name;input.blur();}});
+}
+
 // ─── INIT ────────────────────────────────────────────
-renderLogin();
+// Carregar PINs do banco antes de mostrar o login
+(async function(){
+  try{
+    const v=await GET('vendors?select=id,pin&order=name');
+    v.forEach(function(vendor){
+      const u=USERS.find(x=>x.vendor_id===vendor.id);
+      if(u&&vendor.pin&&String(vendor.pin).length===4) u.pin=String(vendor.pin);
+    });
+  }catch(e){
+    console.log('PIN sync error:',e.message);
+  }
+  renderLogin();
+})();
 
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
