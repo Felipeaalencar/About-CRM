@@ -1767,16 +1767,39 @@ function editLeadName(id){
 }
 
 // ─── INIT ────────────────────────────────────────────
-// Carregar PINs do banco antes de mostrar o login
+// Reconstruir USERS completo a partir do banco antes de mostrar o login
 (async function(){
   try{
-    const v=await GET('vendors?select=id,pin&order=name');
-    v.forEach(function(vendor){
-      const u=USERS.find(x=>x.vendor_id===vendor.id);
-      if(u&&vendor.pin&&String(vendor.pin).length===4) u.pin=String(vendor.pin);
+    const vendors_db=await GET('vendors?select=*&order=name');
+    vendors_db.forEach(function(v){
+      const existing=USERS.find(x=>x.vendor_id===v.id);
+      if(existing){
+        // Atualizar PIN do banco
+        if(v.pin&&String(v.pin).length===4) existing.pin=String(v.pin);
+        // Atualizar nome e ini
+        existing.name=v.name;
+        existing.ini=v.ini||existing.ini;
+      } else {
+        // Vendor novo — adicionar ao USERS
+        const colorIdx=USERS.filter(x=>x.vendor_id).length%COLORS_POOL.length;
+        const cd=COLORS_POOL[colorIdx];
+        USERS.push({
+          id:v.id,name:v.name,role:'vendor',vendor_id:v.id,
+          pin:v.pin&&String(v.pin).length===4?String(v.pin):'0000',
+          ini:v.ini||v.name.slice(0,2).toUpperCase(),
+          color:v.color||cd.color,avStyle:v.avStyle||cd.avStyle,active:true
+        });
+      }
     });
+    // Remover do USERS quem foi deletado do banco
+    const validIds=new Set(vendors_db.map(v=>v.id));
+    for(let i=USERS.length-1;i>=0;i--){
+      if(USERS[i].vendor_id&&!validIds.has(USERS[i].vendor_id)){
+        USERS.splice(i,1);
+      }
+    }
   }catch(e){
-    console.log('PIN sync error:',e.message);
+    console.log('Users sync error:',e.message);
   }
   renderLogin();
 })();
