@@ -245,6 +245,14 @@ textarea{resize:vertical;min-height:65px}
 .tag-item.on{background:var(--blue-bg);border-color:var(--blue);color:var(--blue);font-weight:500}
 .tag-outros{margin-top:8px;display:none}
 .tag-outros.show{display:block}
+.ac-dropdown{position:absolute;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;z-index:999;width:100%;max-height:200px;overflow-y:auto;margin-top:2px;box-shadow:0 4px 20px rgba(0,0,0,.3)}
+.ac-item{padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px}
+.ac-item:last-child{border-bottom:none}
+.ac-item:hover{background:var(--bg3)}
+.ac-item-name{font-weight:500;color:var(--text)}
+.ac-item-info{font-size:11px;color:var(--text3);margin-top:2px}
+.ac-item-warn{font-size:11px;color:var(--amber);margin-top:2px}
+.ac-wrap{position:relative}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
@@ -935,6 +943,8 @@ function openLead(id){
           <input id="lc-end" value="${l.endereco||''}" placeholder="Ex: Rua das Flores, 123" ${canEdit?'':'disabled'}></div>
       </div>
     </div>
+    <div class="field"><div class="field-label">Serviço</div>
+      <select id="lsvc">${SERVICES.map(s=>`<option${s===l.service?' selected':''}>${s}</option>`).join('')}</select></div>
     <div class="field"><div class="field-label">Vendedor</div>
       <select id="lv">${vendors.map(v=>`<option value="${v.id}"${v.id===l.vendor_id?' selected':''}>${v.name}</option>`).join('')}</select></div>
     <div class="field"><div class="field-label">Empresa</div>
@@ -1035,8 +1045,9 @@ async function saveLead(id){
     const telefone=document.getElementById('lc-tel')?.value||'';
     const email=document.getElementById('lc-email')?.value||'';
     const endereco=document.getElementById('lc-end')?.value||'';
-    await PATCH('leads?id=eq.'+id,{stage,next_contact:next,vendor_id,empresa,cpf_cnpj,telefone,email,endereco,days:0,updated_at:new Date().toISOString()});
-    const l=leads.find(x=>x.id===id);l.stage=stage;l.next_contact=next;l.vendor_id=vendor_id;l.empresa=empresa;l.cpf_cnpj=cpf_cnpj;l.telefone=telefone;l.email=email;l.endereco=endereco;l.days=0;
+    const service=document.getElementById('lsvc')?.value||l.service;
+    await PATCH('leads?id=eq.'+id,{stage,next_contact:next,vendor_id,empresa,service,cpf_cnpj,telefone,email,endereco,days:0,updated_at:new Date().toISOString()});
+    const l=leads.find(x=>x.id===id);l.stage=stage;l.next_contact=next;l.vendor_id=vendor_id;l.empresa=empresa;l.service=service;l.cpf_cnpj=cpf_cnpj;l.telefone=telefone;l.email=email;l.endereco=endereco;l.days=0;
     if(txt){const n=await POST('lead_notes',{lead_id:id,type,text:txt});if(!notes[id])notes[id]=[];notes[id].push(n[0]);}
     cm('ov1');render();toast('Lead atualizado');
   }catch(e){toast('Erro: '+e.message,'err');}
@@ -1739,6 +1750,80 @@ function rPerdidos(){
       }).join('');
     }
   }
+}
+
+// ─── AUTOCOMPLETE NOME DO LEAD ──────────────────────
+function acSearch(q){
+  const list=document.getElementById('ac-list');
+  if(!list)return;
+  if(!q||q.length<2){list.innerHTML='';return;}
+  const ql=q.toLowerCase();
+  // Buscar leads com nome parecido
+  const matches=leads.filter(l=>l.name.toLowerCase().includes(ql))
+    .reduce((acc,l)=>{
+      // Deduplicar por nome
+      if(!acc.find(x=>x.name.toLowerCase()===l.name.toLowerCase())) acc.push(l);
+      return acc;
+    },[]).slice(0,5);
+  if(matches.length===0){list.innerHTML='';return;}
+  list.innerHTML='<div class="ac-dropdown">'+matches.map(l=>{
+    // Verificar se tem lead ativo em andamento
+    const ativos=leads.filter(x=>
+      x.name.toLowerCase()===l.name.toLowerCase()&&
+      x.stage!=='Fechado'&&x.stage!=='Perdido'
+    );
+    const v=gv(l.vendor_id);
+    const warnText=ativos.length>0?
+      '⚠️ Lead ativo em andamento com '+v.name+' ('+ativos[0].stage+')':'';
+    return '<div class="ac-item" onclick="acSelect('+JSON.stringify({
+      name:l.name,
+      cpf_cnpj:l.cpf_cnpj||'',
+      telefone:l.telefone||'',
+      email:l.email||'',
+      endereco:l.endereco||'',
+      warn:warnText
+    }).replace(/"/g,"'")+')">'+ 
+      '<div class="ac-item-name">'+l.name+'</div>'+
+      (l.telefone?'<div class="ac-item-info">'+l.telefone+(l.email?' · '+l.email:'')+'</div>':'')+
+      (warnText?'<div class="ac-item-warn">'+warnText+'</div>':'')+
+    '</div>';
+  }).join('')+'</div>';
+}
+
+function acSelect(data){
+  const nn=document.getElementById('nn');
+  if(nn) nn.value=data.name;
+  const list=document.getElementById('ac-list');
+  if(list) list.innerHTML='';
+  // Preencher campos de contato se existirem
+  if(document.getElementById('nc-doc')) document.getElementById('nc-doc').value=data.cpf_cnpj||'';
+  if(document.getElementById('nc-tel')) document.getElementById('nc-tel').value=data.telefone||'';
+  if(document.getElementById('nc-email')) document.getElementById('nc-email').value=data.email||'';
+  if(document.getElementById('nc-end')) document.getElementById('nc-end').value=data.endereco||'';
+  // Mostrar aviso se tiver lead ativo
+  if(data.warn){
+    toast(data.warn,'err');
+  }
+}
+
+// ─── DELETE LEAD ─────────────────────────────────────
+async function deleteLead(id){
+  const l=leads.find(x=>x.id===id);
+  if(!l)return;
+  if(!confirm('Tem certeza que deseja DELETAR o lead "'+l.name+'"?\nEsta ação não pode ser desfeita!'))return;
+  try{
+    // Deletar notas primeiro
+    await sb('lead_notes?lead_id=eq.'+id,{method:'DELETE'});
+    // Deletar o lead
+    await sb('leads?id=eq.'+id,{method:'DELETE'});
+    // Remover da memória
+    const idx=leads.findIndex(x=>x.id===id);
+    if(idx!==-1) leads.splice(idx,1);
+    delete notes[id];
+    cm('ov1');
+    render();
+    toast('Lead "'+l.name+'" deletado');
+  }catch(e){toast('Erro ao deletar: '+e.message,'err');}
 }
 
 // ─── EDIT LEAD NAME ──────────────────────────────────
