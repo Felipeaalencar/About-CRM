@@ -944,7 +944,12 @@ function openLead(id){
       </div>
     </div>
     <div class="field"><div class="field-label">Serviço</div>
-      <select id="lsvc">${SERVICES.map(s=>`<option${s===l.service?' selected':''}>${s}</option>`).join('')}</select></div>
+      <select id="lsvc" ${canEdit?'':'disabled'}>${SERVICES.map(s=>`<option${s===l.service?' selected':''}>${s}</option>`).join('')}</select></div>
+    <div id="lead-pkg-field" style="display:${l.service==='Pacote de Tecnologia'?'block':'none'}">
+      <div class="field"><div class="field-label">Itens do pacote</div>
+        <div id="lead-pkg-tags">${renderLeadPkgTags(l.service==='Pacote de Tecnologia'?l.service:'')}</div>
+      </div>
+    </div>
     <div class="field"><div class="field-label">Vendedor</div>
       <select id="lv">${vendors.map(v=>`<option value="${v.id}"${v.id===l.vendor_id?' selected':''}>${v.name}</option>`).join('')}</select></div>
     <div class="field"><div class="field-label">Empresa</div>
@@ -958,7 +963,7 @@ function openLead(id){
       <select id="lat">${ACT_TYPES.map(t=>`<option>${t}</option>`).join('')}</select></div>
     <div class="field"><div class="field-label">Anotação</div>
       <textarea id="lnt" placeholder="O que aconteceu?"></textarea></div>
-    <button class="btn btn-primary" style="width:100%;padding:10px" onclick="saveLead(${id})">Salvar</button>`
+    <button class="btn btn-primary" style="width:100%;padding:10px" onclick="saveLead(${id})">Salvar</button><button class="btn" style="width:100%;padding:9px;margin-top:8px;color:var(--green)" onclick="exportHistorico(${id})">📋 Exportar PDF</button>${currentUser&&currentUser.role==='admin'?'<button class="btn" style="width:100%;padding:9px;margin-top:8px;color:var(--red)" onclick="deleteLead('+id+'\')">🗑️ Deletar lead</button>':''}`
     :`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:14px;display:flex;align-items:center;gap:10px"><div class="av" style="${avStyle(v)}">${v.ini}</div><div><div style="font-size:12px;font-weight:500">Lead de ${v.name}</div><div style="font-size:11px;color:var(--text3);margin-top:1px">Fase: ${l.stage} · ${l.days===0?'Atualizado hoje':'Há '+l.days+' dias'}</div></div></div><div style="height:1px;background:var(--border);margin-bottom:13px"></div><div class="field"><div class="field-label">💬 Deixar uma dica ou observação</div><select id="lat-collab" style="margin-bottom:8px">${ACT_TYPES.filter(t=>t!=='Proposta enviada'&&t!=='Pedido Fechado').map(t=>'<option>'+t+'</option>').join('')}</select><textarea id="lnt-collab" placeholder="Ex: já atendi esse cliente antes, ele é cuidadoso com preço..." style="min-height:80px"></textarea></div><button class="btn btn-primary" style="width:100%;padding:10px" onclick="saveCollabNote(${id})">Salvar anotação</button>`}
     ${ln.length?`<div class="history"><div class="hist-label">Histórico (${ln.length})</div>${ln.slice().reverse().map(n=>{
         const isCollab=n.text&&n.text.startsWith('[')&&n.text.includes(']');
@@ -1045,7 +1050,8 @@ async function saveLead(id){
     const telefone=document.getElementById('lc-tel')?.value||'';
     const email=document.getElementById('lc-email')?.value||'';
     const endereco=document.getElementById('lc-end')?.value||'';
-    const service=document.getElementById('lsvc')?.value||l.service;
+    const svcVal=document.getElementById('lsvc')?.value||l.service;
+const service=svcVal==='Pacote de Tecnologia'?getLeadPkgLabel():svcVal;
     await PATCH('leads?id=eq.'+id,{stage,next_contact:next,vendor_id,empresa,service,cpf_cnpj,telefone,email,endereco,days:0,updated_at:new Date().toISOString()});
     const l=leads.find(x=>x.id===id);l.stage=stage;l.next_contact=next;l.vendor_id=vendor_id;l.empresa=empresa;l.service=service;l.cpf_cnpj=cpf_cnpj;l.telefone=telefone;l.email=email;l.endereco=endereco;l.days=0;
     if(txt){const n=await POST('lead_notes',{lead_id:id,type,text:txt});if(!notes[id])notes[id]=[];notes[id].push(n[0]);}
@@ -1804,6 +1810,30 @@ function acSelect(data){
   if(data.warn){
     toast(data.warn,'err');
   }
+}
+
+// ─── LEAD SERVICE CHANGE ─────────────────────────────
+function onLeadServiceChange(val){
+  const pkgField=document.getElementById('lead-pkg-field');
+  if(pkgField) pkgField.style.display=val==='Pacote de Tecnologia'?'block':'none';
+}
+
+function renderLeadPkgTags(currentService){
+  // Itens já selecionados -- se o serviço for uma lista de itens
+  const isRaw=currentService&&currentService!=='Pacote de Tecnologia';
+  const sel=new Set(isRaw?currentService.split(',').map(x=>x.trim()):[]);
+  return '<div class="tag-grid">'+PKG_ITEMS.map(i=>
+    '<div class="tag-item'+(sel.has(i)?' on':'')+'" onclick="toggleLeadTag(this)">'+i+'</div>'
+  ).join('')+'</div>';
+}
+
+function toggleLeadTag(el){
+  el.classList.toggle('on');
+}
+
+function getLeadPkgLabel(){
+  const selected=[...document.querySelectorAll('#lead-pkg-tags .tag-item.on')].map(el=>el.textContent);
+  return selected.length?selected.join(', '):'Pacote de Tecnologia';
 }
 
 // ─── DELETE LEAD ─────────────────────────────────────
