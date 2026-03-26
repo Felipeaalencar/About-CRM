@@ -945,7 +945,7 @@ function openLead(id){
     </div>
     <div class="field"><div class="field-label">Serviço</div>
       <select id="lsvc" ${canEdit?'':'disabled'}>${SERVICES.map(s=>`<option${s===l.service?' selected':''}>${s}</option>`).join('')}</select></div>
-    <div id="lead-pkg-field" style="display:${l.service==='Pacote de Tecnologia'?'block':'none'}">
+    <div id="lead-pkg-field" style="display:none">
       <div class="field"><div class="field-label">Itens do pacote</div>
         <div id="lead-pkg-tags">${renderLeadPkgTags(l.service==='Pacote de Tecnologia'?l.service:'')}</div>
       </div>
@@ -973,6 +973,8 @@ function openLead(id){
         return '<div class="hist-item" style="'+extra+'"><span class="hist-type '+(ACT_CLS[n.type]||'ht-note')+'">'+(isClosed?'🤝 Fechado':isLoss?'❌ Perda':n.type)+'</span><span class="hist-text">'+n.text+'</span></div>';
       }).join('')}</div>`:''}`;
   document.getElementById('ov1').classList.add('on');
+  // Inicializar campo de pacote se necessário
+  onLeadServiceChange(l.service);
 }
 
 async function saveCollabNote(id){
