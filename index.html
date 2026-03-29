@@ -1069,7 +1069,7 @@ function openNew(){
       <button class="close-btn" onclick="cm('ov2')">✕</button>
     </div>
     <div class="field"><div class="field-label">Nome do cliente</div>
-      <input id="nn" placeholder="Ex: Condomínio Aurora"></div>
+      <input id="nn" placeholder="Ex: Condomínio Aurora" autocomplete="off" oninput="acSearch(this.value)" style="width:100%"><div id="ac-list"></div></div>
     <div class="field"><div class="field-label">Empresa</div>
       <select id="ne">${EMPRESAS.map(e=>`<option>${e}</option>`).join('')}</select></div>
     <div class="field"><div class="field-label">Serviço</div>
@@ -1802,10 +1802,11 @@ function acSelect(data){
   const list=document.getElementById('ac-list');
   if(list) list.innerHTML='';
   // Preencher campos de contato se existirem
-  if(document.getElementById('nc-doc')) document.getElementById('nc-doc').value=data.cpf_cnpj||'';
-  if(document.getElementById('nc-tel')) document.getElementById('nc-tel').value=data.telefone||'';
-  if(document.getElementById('nc-email')) document.getElementById('nc-email').value=data.email||'';
-  if(document.getElementById('nc-end')) document.getElementById('nc-end').value=data.endereco||'';
+  // Preencher campos de contato do novo lead
+  ['lc-doc','nc-doc'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=data.cpf_cnpj||'';});
+  ['lc-tel','nc-tel'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=data.telefone||'';});
+  ['lc-email','nc-email'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=data.email||'';});
+  ['lc-end','nc-end'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=data.endereco||'';});
   // Mostrar aviso se tiver lead ativo
   if(data.warn){
     toast(data.warn,'err');
