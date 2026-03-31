@@ -862,17 +862,40 @@ function rVendors(){
 }
 
 // ─── ALERTS ──────────────────────────────────────────
+function mkWaLink(vendor_id, lead){
+  const v=gv(vendor_id);
+  const vd=vendors.find(x=>x.id===vendor_id);
+  const tel=vd&&vd.telefone?vd.telefone.replace(/\D/g,''):'';
+  if(!tel) return '';
+  const msg=encodeURIComponent('Olá '+v.name+'! O lead *'+lead.name+'* está parado há '+lead.days+' dia(s) na fase "'+lead.stage+'". Consegue dar uma atenção?');
+  return '<a href="https://wa.me/55'+tel+'?text='+msg+'" target="_blank" onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;background:#25d366;color:#fff;font-size:10px;font-weight:600;padding:4px 10px;border-radius:12px;text-decoration:none;flex-shrink:0">📲 Cobrar</a>';
+}
+
 function rAlerts(){
   document.getElementById('urg-days-lbl').textContent=cfg.urgDays;
   document.getElementById('warn-days-lbl').textContent=cfg.warnDays;
-  const mkA=(l,type)=>{const v=gv(l.vendor_id);return `<div class="alert-item ${type}" onclick="openLead(${l.id})">
-    <div class="alert-dot" style="background:${type==='urg'?'var(--red)':'var(--amber)'}"></div>
-    <div class="alert-info"><div class="alert-name">${l.name}</div><div class="alert-desc">${l.service} · ${l.stage} · ${l.origin}</div></div>
-    <div class="alert-right"><div class="alert-days" style="color:${type==='urg'?'var(--red)':'var(--amber)'}">há ${l.days}d</div><div class="alert-vendor">${v.name}</div></div>
-  </div>`;};
+  const isAdmin=currentUser&&currentUser.role==='admin';
+  const mkA=(l,type)=>{
+    const v=gv(l.vendor_id);
+    const waBtn=isAdmin?mkWaLink(l.vendor_id,l):'';
+    return `<div class="alert-item ${type}" onclick="openLead(${l.id})">
+      <div class="alert-dot" style="background:${type==='urg'?'var(--red)':'var(--amber)'}"></div>
+      <div class="alert-info">
+        <div class="alert-name">${l.name}</div>
+        <div class="alert-desc">${l.service} · ${l.stage} · ${v.name}</div>
+      </div>
+      <div class="alert-right" style="display:flex;align-items:center;gap:8px">
+        <div style="text-align:right">
+          <div class="alert-days" style="color:${type==='urg'?'var(--red)':'var(--amber)'}">há ${l.days}d</div>
+          <div class="alert-vendor">${l.origin}</div>
+        </div>
+        ${waBtn}
+      </div>
+    </div>`;
+  };
   const urgs=leads.filter(isUrgent).sort((a,b)=>b.days-a.days);
   const warns=leads.filter(l=>isStale(l)&&!isUrgent(l)).sort((a,b)=>b.days-a.days);
-  document.getElementById('alerts-urgent').innerHTML=urgs.length?urgs.map(l=>mkA(l,'urg')).join(''):'<div style="font-size:12px;color:var(--text3);padding:10px">Nenhum lead urgente</div>';
+  document.getElementById('alerts-urgent').innerHTML=urgs.length?urgs.map(l=>mkA(l,'urg')).join(''):'<div style="font-size:12px;color:var(--text3);padding:10px">Nenhum lead urgente 🎉</div>';
   document.getElementById('alerts-warn').innerHTML=warns.length?warns.map(l=>mkA(l,'warn')).join(''):'<div style="font-size:12px;color:var(--text3);padding:10px">Nenhum alerta de atenção</div>';
 }
 
@@ -962,7 +985,7 @@ function openLead(id){
       <select id="lat">${ACT_TYPES.map(t=>`<option>${t}</option>`).join('')}</select></div>
     <div class="field"><div class="field-label">Anotação</div>
       <textarea id="lnt" placeholder="O que aconteceu?"></textarea></div>
-    <button class="btn btn-primary" style="width:100%;padding:10px" onclick="saveLead(${id})">Salvar</button><button class="btn" style="width:100%;padding:9px;margin-top:8px;color:var(--green)" onclick="exportHistorico(${id})">📋 Exportar PDF</button>${currentUser&&currentUser.role==='admin'?'<button class="btn" style="width:100%;padding:9px;margin-top:8px;color:var(--red)" onclick="deleteLead('+id+'\')">🗑️ Deletar lead</button>':''}`
+    <button class="btn btn-primary" style="width:100%;padding:10px" onclick="saveLead(${id})">Salvar</button><button class="btn" style="width:100%;padding:9px;margin-top:8px;color:var(--green)" onclick="exportHistorico(${id})">📋 Exportar PDF</button>${currentUser&&currentUser.role==='admin'?'<button class="btn" style="width:100%;padding:9px;margin-top:8px;color:var(--red)" onclick="deleteLead('+id+')">🗑️ Deletar lead</button>':''}`
     :`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:14px;display:flex;align-items:center;gap:10px"><div class="av" style="${avStyle(v)}">${v.ini}</div><div><div style="font-size:12px;font-weight:500">Lead de ${v.name}</div><div style="font-size:11px;color:var(--text3);margin-top:1px">Fase: ${l.stage} · ${l.days===0?'Atualizado hoje':'Há '+l.days+' dias'}</div></div></div><div style="height:1px;background:var(--border);margin-bottom:13px"></div><div class="field"><div class="field-label">💬 Deixar uma dica ou observação</div><select id="lat-collab" style="margin-bottom:8px">${ACT_TYPES.filter(t=>t!=='Proposta enviada'&&t!=='Pedido Fechado').map(t=>'<option>'+t+'</option>').join('')}</select><textarea id="lnt-collab" placeholder="Ex: já atendi esse cliente antes, ele é cuidadoso com preço..." style="min-height:80px"></textarea></div><button class="btn btn-primary" style="width:100%;padding:10px" onclick="saveCollabNote(${id})">Salvar anotação</button>`}
     ${ln.length?`<div class="history"><div class="hist-label">Histórico (${ln.length})</div>${ln.slice().reverse().map(n=>{
         const isCollab=n.text&&n.text.startsWith('[')&&n.text.includes(']');
@@ -1260,7 +1283,17 @@ const SEM_COMISSAO_SVCS=['Seg. Armada','Drone'];
 function calcComissao(lead){
   const ticket = lead.ticket||0;
   const empresa = lead.empresa||'SHIELD';
-  if(empresa==='Connection') return {valor:Math.round(ticket*0.05), label:'5% — Connection'};
+  const vendor = vendors.find(v=>v.id===lead.vendor_id);
+
+  if(empresa==='Connection'){
+    const pct = vendor&&vendor.comissao_cnn!=null ? parseFloat(vendor.comissao_cnn) : 5;
+    if(pct===0) return {valor:0, label:'Sem comissão — CNN'};
+    return {valor:Math.round(ticket*(pct/100)), label:pct+'% — Connection'};
+  }
+
+  // SHIELD
+  const shl = vendor&&vendor.comissao_shl ? vendor.comissao_shl : 'primeira_parcela';
+  if(shl==='sem_comissao') return {valor:0, label:'Sem comissão — SHL'};
   return {valor:ticket, label:'1ª parcela — SHIELD'};
 }
 function initComMes(){
@@ -1474,7 +1507,27 @@ async function saveNewVendor(){
 function openEditVendor(uid){
   const u=USERS.find(x=>x.id===uid),v=vendors.find(x=>x.id===uid);
   if(!u||!v)return;
-  document.getElementById('modal2').innerHTML='<div class="modal-hd"><div class="modal-title">Editar vendedor</div><button class="close-btn" onclick="cm(\'ov2\')">✕</button></div><div class="field"><div class="field-label">Nome</div><input id="ev-name" value="'+u.name+'"></div><div class="field"><div class="field-label">Iniciais</div><input id="ev-ini" maxlength="2" value="'+u.ini+'" style="text-transform:uppercase"></div><div class="field"><div class="field-label">Perfil</div><select id="ev-role"><option value="vendor" '+(u.role==='vendor'?'selected':'')+'>Vendedor</option><option value="admin" '+(u.role==='admin'?'selected':'')+'>Gestor</option></select></div><div class="field"><div class="field-label">Meta mensal</div><input id="ev-meta" type="number" value="'+v.meta+'" min="1"></div><div class="field"><div class="field-label">PIN</div><input id="ev-pin" type="text" maxlength="4" value="'+u.pin+'"></div><button class="btn btn-primary" style="width:100%;padding:10px" onclick="saveEditVendor(\''+uid+'\')">Salvar</button>';
+  document.getElementById('modal2').innerHTML=`
+    <div class="modal-hd">
+      <div class="modal-title">Editar vendedor</div>
+      <button class="close-btn" onclick="cm('ov2')">✕</button>
+    </div>
+    <div class="field"><div class="field-label">Nome</div>
+      <input id="ev-name" value="${u.name}"></div>
+    <div class="field"><div class="field-label">Iniciais</div>
+      <input id="ev-ini" maxlength="2" value="${u.ini}" style="text-transform:uppercase"></div>
+    <div class="field"><div class="field-label">Perfil</div>
+      <select id="ev-role">
+        <option value="vendor" ${u.role==='vendor'?'selected':''}>Vendedor</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>Gestor</option>
+      </select></div>
+    <div class="field"><div class="field-label">Meta mensal</div>
+      <input id="ev-meta" type="number" value="${v.meta}" min="1"></div>
+    <div class="field"><div class="field-label">PIN</div>
+      <input id="ev-pin" type="text" maxlength="4" value="${u.pin}"></div>
+    <div class="field"><div class="field-label">WhatsApp (com DDD, só números)</div>
+      <input id="ev-tel" type="text" placeholder="Ex: 48999999999" value="${v.telefone||''}"></div>
+    <button class="btn btn-primary" style="width:100%;padding:10px" onclick="saveEditVendor('${uid}')">Salvar</button>`;
   document.getElementById('ov2').classList.add('on');
 }
 async function saveEditVendor(uid){
@@ -1483,10 +1536,13 @@ async function saveEditVendor(uid){
   const meta=parseInt(document.getElementById('ev-meta').value)||5;
   const pin=document.getElementById('ev-pin').value.trim();
   const role=document.getElementById('ev-role').value;
+  const telefone=(document.getElementById('ev-tel')?.value||'').trim().replace(/\D/g,'');
+  const comissao_shl=document.getElementById('ev-com-shl')?.value||'primeira_parcela';
+  const comissao_cnn=parseFloat(document.getElementById('ev-com-cnn')?.value)||0;
   if(!name||ini.length!==2||!/^\d{4}$/.test(pin)){toast('Verifique os campos','err');return;}
   try{
-    await PATCH('vendors?id=eq.'+uid,{name,ini,meta,role});
-    const v=vendors.find(x=>x.id===uid);v.name=name;v.ini=ini;v.meta=meta;
+    await PATCH('vendors?id=eq.'+uid,{name,ini,meta,role,pin,telefone,comissao_shl,comissao_cnn});
+    const v=vendors.find(x=>x.id===uid);v.name=name;v.ini=ini;v.meta=meta;v.telefone=telefone;v.comissao_shl=comissao_shl;v.comissao_cnn=comissao_cnn;
     const u=USERS.find(x=>x.id===uid);u.name=name;u.ini=ini;u.pin=pin;u.role=role;
     cm('ov2');render();renderLogin();toast('Vendedor atualizado!');
   }catch(e){toast('Erro: '+e.message,'err');}
@@ -1759,6 +1815,7 @@ function rPerdidos(){
 }
 
 // ─── AUTOCOMPLETE NOME DO LEAD ──────────────────────
+let _acResults = [];
 function acSearch(q){
   const list=document.getElementById('ac-list');
   if(!list)return;
@@ -1796,6 +1853,9 @@ function acSearch(q){
   }).join('')+'</div>';
 }
 
+function acSelectIdx(i){
+  acSelect(_acResults[i]);
+}
 function acSelect(data){
   const nn=document.getElementById('nn');
   if(nn) nn.value=data.name;
@@ -1848,8 +1908,9 @@ function getLeadPkgLabel(){
 
 // ─── DELETE LEAD ─────────────────────────────────────
 async function deleteLead(id){
+  console.log('deleteLead chamado, id:', id);
   const l=leads.find(x=>x.id===id);
-  if(!l)return;
+  if(!l){console.log('lead não encontrado');return;}
   if(!confirm('Tem certeza que deseja DELETAR o lead "'+l.name+'"?\nEsta ação não pode ser desfeita!'))return;
   try{
     // Deletar notas primeiro
@@ -1863,7 +1924,7 @@ async function deleteLead(id){
     cm('ov1');
     render();
     toast('Lead "'+l.name+'" deletado');
-  }catch(e){toast('Erro ao deletar: '+e.message,'err');}
+  }catch(e){console.error('Erro deletar:', e);toast('Erro: '+e.message,'err');}
 }
 
 // ─── EDIT LEAD NAME ──────────────────────────────────
