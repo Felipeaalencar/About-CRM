@@ -456,7 +456,8 @@ textarea{resize:vertical;min-height:65px}
       <span style="font-size:16px;flex-shrink:0">⚠️</span>
       <span style="font-size:11px;color:var(--amber);line-height:1.6">
         <strong>Atenção:</strong> A comissão é calculada sobre o valor dos <strong>produtos</strong>, não incluindo mão de obra.<br>
-        SHL = 1ª parcela integral &nbsp;·&nbsp; CNN = 5% sobre produtos.
+        SHL = 1ª parcela integral &nbsp;·&nbsp; CNN = % sobre valor total.<br>
+        <span style="font-size:10px;opacity:.8">O pagamento da comissão CNN é proporcional ao recebimento das parcelas e pode ser alterado em caso de inadimplência do cliente.</span>
       </span>
     </div>
     <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:16px" id="com-vendedor-cards"></div>
@@ -980,18 +981,51 @@ function openLead(id){
       <select id="ls" onchange="onStageChange(this.value)" data-prev="${l.stage}">${STAGES.map(s=>`<option${s===l.stage?' selected':''}>${s}</option>`).join('')}</select></div>
 
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px">
-      <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">💰 Composição do valor</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div class="field" style="margin:0"><div class="field-label">Valor produtos (R$)</div>
-          <input id="l-vprod" type="number" value="${l.valor_produtos||0}" placeholder="0" ${canEdit?'':'disabled'}></div>
-        <div class="field" style="margin:0"><div class="field-label">Mão de obra (R$)</div>
-          <input id="l-vmob" type="number" value="${l.valor_mao_obra||0}" placeholder="0" ${canEdit?'':'disabled'}></div>
-      </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:8px">
-        Total: <strong style="color:var(--text)">${fmt((l.valor_produtos||0)+(l.valor_mao_obra||0))}</strong>
-        ${(l.valor_produtos||0)+(l.valor_mao_obra||0)>0&&((l.valor_produtos||0)+(l.valor_mao_obra||0))!==(l.ticket||0)?'<span style="color:var(--amber)"> · ticket estimado: '+fmt(l.ticket||0)+'</span>':''}
+      <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">💰 Valor da mensalidade (SHL)</div>
+      <div class="field" style="margin:0"><div class="field-label">Valor mensal (R$)</div>
+        <input id="l-vprod" type="text" inputmode="decimal"
+          value="${l.ticket>0?l.ticket.toLocaleString('pt-BR',{minimumFractionDigits:2}):'0,00'}"
+          onfocus="parseMoeda(this)" onblur="maskMoeda(this)"
+          ${canEdit?'':'disabled'}>
       </div>
     </div>
+    <div class="field">
+      <div class="field-label">${l.empresa==='Connection'?'Parcelamento (parcelas)':'Duração do contrato'}</div>
+      <select id="l-prazo" onchange="onModalPrazoChange(this.value);calcCnnTotal('parcelas')" ${canEdit?'':'disabled'}>
+        <option value="12" ${(l.parcelas||'12')==='12'?'selected':''}>12 meses</option>
+        <option value="24" ${(l.parcelas||'')==='24'?'selected':''}>24 meses</option>
+        <option value="36" ${(l.parcelas||'')==='36'?'selected':''}>36 meses</option>
+        <option value="48" ${(l.parcelas||'')==='48'?'selected':''}>48 meses</option>
+        <option value="60" ${(l.parcelas||'')==='60'?'selected':''}>60 meses</option>
+        <option value="outro" ${l.parcelas&&!['12','24','36','48','60'].includes(l.parcelas)?'selected':''}>Outro</option>
+      </select>
+      <input id="l-prazo-outro" type="number" placeholder="Digite o prazo em meses"
+        value="${l.parcelas&&!['12','24','36','48','60'].includes(l.parcelas)?l.parcelas:''}"
+        style="display:${l.parcelas&&!['12','24','36','48','60'].includes(l.parcelas)?'block':'none'};margin-top:6px;width:100%"
+        ${canEdit?'':'disabled'}>
+    </div>
+    ${l.empresa==='Connection'?`
+    <div id="cnn-section" style="background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);border-radius:8px;padding:12px;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:600;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">💜 Parcelamento CNN</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div class="field" style="margin:0"><div class="field-label">Entrada (R$)</div>
+          <input id="l-entrada" type="text" inputmode="decimal"
+            value="${l.entrada>0?l.entrada.toLocaleString('pt-BR',{minimumFractionDigits:2}):'0,00'}"
+            onfocus="parseMoeda(this)"
+            onblur="maskMoeda(this);calcCnnTotal('entrada')"
+            ${canEdit?'':'disabled'}></div>
+        <div class="field" style="margin:0"><div class="field-label">Valor por parcela (R$)</div>
+          <input id="l-vparcela" type="text" inputmode="decimal"
+            value="${l.valor_parcela>0?l.valor_parcela.toLocaleString('pt-BR',{minimumFractionDigits:2}):'calculado auto'}"
+            onfocus="parseMoeda(this)"
+            onblur="maskMoeda(this)"
+            ${canEdit?'':'disabled'}></div>
+      </div>
+      <div style="font-size:12px;color:var(--text2)" id="cnn-total-display">
+        Total: <strong style="color:var(--purple)">${fmt(Math.round((l.entrada||0)+((l.valor_parcela||0)*parseInt(l.parcelas||0))))}</strong>
+        ${l.parcelas&&l.parcelas!=='0'?' (entrada '+fmt(l.entrada||0)+' + '+l.parcelas+'x de '+fmt(l.valor_parcela||0)+')':''}
+      </div>
+    </div>`:''}
     <div class="field"><div class="field-label">Próximo contato</div>
       <input id="ln" value="${l.next_contact||''}" placeholder="Ex: Ligar na segunda"></div>
     <div class="field"><div class="field-label">Tipo de atividade</div>
@@ -1028,6 +1062,13 @@ async function saveLead(id){
   const stage=document.getElementById('ls').value;
   const next=document.getElementById('ln')?.value||'';
   const vendor_id=document.getElementById('lv').value;
+  if(stage==='Fechado'){
+    const l=leads.find(x=>x.id===id);
+    if(l){
+      const faltando=validarFechamento(l);
+      if(faltando.length>0){mostrarAvisoFechamento(faltando);return;}
+    }
+  }
   const empresa=document.getElementById('le')?.value||l.empresa||'SHIELD';
   const txt=document.getElementById('lnt').value.trim();
   const type=document.getElementById('lat').value;
@@ -1088,8 +1129,18 @@ async function saveLead(id){
     const endereco=document.getElementById('lc-end')?.value||'';
     const svcVal=document.getElementById('lsvc')?.value||l.service;
 const service=svcVal==='Pacote de Tecnologia'?getLeadPkgLabel():svcVal;
-    await PATCH('leads?id=eq.'+id,{stage,next_contact:next,vendor_id,empresa,service,cpf_cnpj,telefone,email,endereco,days:0,updated_at:new Date().toISOString()});
-    const l=leads.find(x=>x.id===id);l.stage=stage;l.next_contact=next;l.vendor_id=vendor_id;l.empresa=empresa;l.service=service;l.cpf_cnpj=cpf_cnpj;l.telefone=telefone;l.email=email;l.endereco=endereco;l.valor_produtos=valor_produtos;l.valor_mao_obra=valor_mao_obra;l.days=0;
+    const valor_produtos=parseFloat(document.getElementById('l-vprod')?.value)||0;
+    const valor_mao_obra=parseFloat(document.getElementById('l-vmob')?.value)||0;
+    const lPrazoSel=document.getElementById('l-prazo')?.value||'12';
+    const parcelas=lPrazoSel==='outro'?(document.getElementById('l-prazo-outro')?.value||'outro'):lPrazoSel;
+        await PATCH('leads?id=eq.'+id,{stage,next_contact:next,vendor_id,empresa,service,cpf_cnpj,telefone,email,endereco,valor_produtos,valor_mao_obra,parcelas,
+        entrada:parseFloat(document.getElementById('l-entrada')?.value)||0,
+        valor_parcela:parseFloat(document.getElementById('l-vparcela')?.value)||0,
+        days:0,updated_at:new Date().toISOString()});
+    const l=leads.find(x=>x.id===id);l.stage=stage;l.next_contact=next;l.vendor_id=vendor_id;l.empresa=empresa;l.service=service;l.cpf_cnpj=cpf_cnpj;l.telefone=telefone;l.email=email;l.endereco=endereco;l.valor_produtos=valor_produtos;l.valor_mao_obra=valor_mao_obra;l.parcelas=parcelas;
+    l.entrada=parseFloat(document.getElementById('l-entrada')?.value)||0;
+    l.valor_parcela=parseFloat(document.getElementById('l-vparcela')?.value)||0;
+    l.days=0;
     if(txt){const n=await POST('lead_notes',{lead_id:id,type,text:txt});if(!notes[id])notes[id]=[];notes[id].push(n[0]);}
     cm('ov1');render();toast('Lead atualizado');
   }catch(e){toast('Erro: '+e.message,'err');}
@@ -1107,17 +1158,55 @@ function openNew(){
     <div class="field"><div class="field-label">Nome do cliente</div>
       <input id="nn" placeholder="Ex: Condomínio Aurora" autocomplete="off" oninput="acSearch(this.value)" style="width:100%"><div id="ac-list"></div></div>
     <div class="field"><div class="field-label">Empresa</div>
-      <select id="ne">${EMPRESAS.map(e=>`<option>${e}</option>`).join('')}</select></div>
+      <select id="ne" onchange="onNovoEmpresaChange(this.value)"><option value="">Selecione...</option>${EMPRESAS.map(e=>`<option>${e}</option>`).join('')}</select></div>
     <div class="field"><div class="field-label">Serviço</div>
-      <select id="ns" onchange="onServiceChange(this.value)">${SERVICES.map(s=>`<option>${s}</option>`).join('')}</select></div>
+      <select id="ns" onchange="onServiceChange(this.value)"><option value="">Selecione...</option>${SERVICES.map(s=>`<option>${s}</option>`).join('')}</select></div>
     <div class="field" id="pkg-field" style="display:none">
       <div class="field-label">Itens do pacote</div>
       <div id="pkg-tags-wrap">${renderPkgTags()}</div>
     </div>
     <div class="field"><div class="field-label">Origem</div>
       <select id="no">${ORIGINS.map(o=>`<option>${o}</option>`).join('')}</select></div>
-    <div class="field"><div class="field-label">Ticket estimado (R$/mês)</div>
-      <input id="nt2" type="number" value="1800"></div>
+    <div class="field"><div class="field-label">Ticket estimado (R$)</div>
+      <input id="nt2" type="text" inputmode="decimal" placeholder="Ex: 50.000,00" onfocus="parseMoeda(this)" onblur="maskMoeda(this);calcNovoTotal()"></div>
+
+    <!-- SHL: Composição de valor -->
+    <div id="n-shl-section" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">💰 Valor da mensalidade (SHL)</div>
+      <div class="field" style="margin:0"><div class="field-label">Valor mensal (R$)</div>
+        <input id="n-vprod" type="text" inputmode="decimal"
+          onfocus="parseMoeda(this)"
+          onblur="maskMoeda(this);calcNovoTotal()"
+          placeholder="Ex: 2.500,00">
+      </div>
+    </div>
+
+    <!-- SHL: Duração do contrato / CNN: Parcelamento -->
+    <div class="field">
+      <div class="field-label" id="n-prazo-label">Duração do contrato</div>
+      <select id="n-parcelas" onchange="onNovoPrazoChange(this.value);calcNovoTotal()">
+        <option value="12">12 meses</option>
+        <option value="24">24 meses</option>
+        <option value="36">36 meses</option>
+        <option value="48">48 meses</option>
+        <option value="60">60 meses</option>
+        <option value="outro">Outro</option>
+      </select>
+      <input id="n-parcelas-outro" type="number" placeholder="Digite o prazo em meses" style="display:none;margin-top:6px;width:100%">
+    </div>
+
+    <!-- CNN: Entrada + Valor por parcela -->
+    <div id="n-cnn-section" style="display:none;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:600;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">💜 Parcelamento CNN</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div class="field" style="margin:0"><div class="field-label">Entrada (R$)</div>
+          <input id="n-entrada" type="text" inputmode="decimal" onfocus="parseMoeda(this)" onblur="maskMoeda(this);calcNovoTotal()" placeholder="0" oninput="calcNovoTotal()"></div>
+        <div class="field" style="margin:0"><div class="field-label">Valor por parcela (R$)</div>
+          <input id="n-vparcela" type="text" inputmode="decimal" onfocus="parseMoeda(this)" onblur="maskMoeda(this);calcNovoTotal()" placeholder="calculado auto" oninput="calcNovoTotal()"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text3)" id="n-cnn-total">Total: —</div>
+    </div>
+
     <div class="field"><div class="field-label">Atribuir para</div>
       <select id="nv">${vendors.map(v=>`<option value="${v.id}"${v.id===defVendor?' selected':''}>${v.name}</option>`).join('')}</select></div>
     <button class="btn btn-primary" style="width:100%;padding:10px" onclick="createLead()">Criar lead</button>`;
@@ -1131,7 +1220,13 @@ async function createLead(){
   const service=svcSel==='Pacote de Tecnologia'?getPkgLabel():svcSel;
   const empresa=document.getElementById('ne')?.value||'Shield';
   try{
-    const r=await POST('leads',{name:nm,service,empresa,origin:document.getElementById('no').value,ticket:parseInt(document.getElementById('nt2').value)||1800,vendor_id:document.getElementById('nv').value,stage:'Novo lead',days:0,next_contact:''});
+    const vprod=parseVal('n-vprod');
+    const vmob=parseVal('n-vmob');
+    const nPrazoSel=document.getElementById('n-parcelas')?.value||'12';
+    const nParcelas=nPrazoSel==='outro'?(document.getElementById('n-parcelas-outro')?.value||'outro'):nPrazoSel;
+    const nEntrada=parseVal('n-entrada');
+    const nVparcela=parseVal('n-vparcela');
+    const r=await POST('leads',{name:nm,service,empresa,origin:document.getElementById('no').value,ticket:parseInt(document.getElementById('nt2').value)||1800,vendor_id:document.getElementById('nv').value,stage:'Novo lead',days:0,next_contact:'',valor_produtos:vprod,valor_mao_obra:vmob,parcelas:nParcelas,entrada:nEntrada,valor_parcela:nVparcela});
     leads.unshift(r[0]);cm('ov2');render();toast('Lead criado!');
   }catch(e){toast('Erro: '+e.message,'err');}
 }
@@ -1199,6 +1294,10 @@ async function drop(e,stage){
   if(!l||l.stage===stage)return;
   if(!canEditLead(l)){toast('Você só pode mover leads atribuídos a você','err');return;}
   if(stage==='Perdido'){openLossModal(id);return;}
+  if(stage==='Fechado'){
+    const faltando=validarFechamento(l);
+    if(faltando.length>0){mostrarAvisoFechamento(faltando);dragEnd(event);return;}
+  }
   const oldStage=l.stage;l.stage=stage;l.days=0;render();
   try{
     await PATCH('leads?id=eq.'+id,{stage,days:0,updated_at:new Date().toISOString()});
@@ -1352,7 +1451,13 @@ function rComissoes(){
   const tableEl=document.getElementById('com-table');
   if(tableEl)tableEl.innerHTML=pedidos.length===0?'<div style="font-size:12px;color:var(--text3);text-align:center;padding:20px">Nenhum pedido fechado neste mês</div>':pedidos.map(l=>{
     const v=gv(l.vendor_id),n=(notes[l.id]||[]).find(x=>x.type==='Pedido Fechado'),cd=calcComissao(l);
-    return '<div class="com-row"><div style="flex:1;min-width:0"><div class="com-cliente">'+l.name+'</div><div class="com-service">'+(l.empresa?'<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;margin-right:4px;background:'+(l.empresa==='Shield'?'rgba(59,130,246,.15)':'rgba(168,85,247,.15)')+';color:'+(l.empresa==='Shield'?'#60a5fa':'#c084fc')+'">'+l.empresa+'</span>':'')+l.service+(n?' · '+n.text.split(' · ')[0]:'')+'</div></div>'+(isAdmin?'<span class="com-vendedor-badge">'+v.name+'</span>':'')+'<div style="text-align:right;flex-shrink:0"><div class="com-valor">'+fmt(l.ticket||0)+'/mês</div><div class="com-com">'+(cd.valor>0?cd.label+' = '+fmt(cd.valor):cd.label)+'</div></div></div>';
+    const isCNN=l.empresa==='Connection';
+    const nparcelas=parseInt(l.parcelas)||0;
+    const comEntrada=isCNN&&l.entrada?Math.round((l.entrada)*(com.valor/(l.ticket||1))):'';
+    const comParcela=isCNN&&l.valor_parcela&&nparcelas?Math.round((l.valor_parcela)*(com.valor/(l.ticket||1))):'';
+    return '<div class="com-row"><div style="flex:1;min-width:0"><div class="com-cliente">'+l.name+'</div><div class="com-service">'+(l.empresa?'<span style="font-size:9px;font-weight:600;padding:1px 5px;border-radius:3px;margin-right:4px;background:'+(l.empresa==='Shield'?'rgba(59,130,246,.15)':'rgba(168,85,247,.15)')+';color:'+(l.empresa==='Shield'?'#60a5fa':'#c084fc')+'">'+l.empresa+'</span>':'')+l.service+(n?' · '+n.text.split(' · ')[0]:'')+'</div></div>'+(isAdmin?'<span class="com-vendedor-badge">'+v.name+'</span>':'')+'<div style="text-align:right;flex-shrink:0"><div class="com-valor">'+fmt(l.ticket||0)+'/mês</div><div class="com-com">'+(cd.valor>0?cd.label+' = '+fmt(cd.valor):cd.label)+'</div>'+
+      (isCNN&&nparcelas>0?'<div style="font-size:10px;color:var(--text3);margin-top:3px">Entrada: <b>'+fmt(l.entrada||0)+'</b> · '+nparcelas+'x de <b>'+fmt(l.valor_parcela||0)+'</b></div>':'')+
+    '</div></div>';
   }).join('');
   const cardsEl=document.getElementById('com-vendedor-cards');
   if(cardsEl&&isAdmin)cardsEl.innerHTML=USERS.filter(u=>u.active!==false&&u.vendor_id).map(u=>{
@@ -1922,6 +2027,74 @@ function acSelect(data){
   }
 }
 
+// ─── FORMATAÇÃO MOEDA ────────────────────────────────
+function maskMoeda(el){
+  let val=parseFloat(el.value)||0;
+  if(val>0) el.value=val.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function parseMoeda(el){
+  let raw=(el.value||'').replace(/\./g,'').replace(',','.');
+  el.value=parseFloat(raw)||'';
+}
+
+// ─── CNN TOTAL ───────────────────────────────────────
+function calcCnnTotal(){
+  const entrada=parseFloat(document.getElementById('l-entrada')?.value)||0;
+  const vparcela=parseFloat(document.getElementById('l-vparcela')?.value)||0;
+  const nparcelas=parseInt(document.getElementById('l-prazo')?.value)||0;
+  const total=entrada+(vparcela*nparcelas);
+  const el=document.getElementById('cnn-total-display');
+  if(el) el.innerHTML='Total: <strong style="color:var(--purple)">'+fmt(total)+'</strong> (entrada + '+nparcelas+'x de '+fmt(vparcela)+')';
+}
+
+// ─── PRAZO / PARCELAMENTO DINÂMICO ──────────────────
+function onNovoEmpresaChange(empresa){
+  const label=document.getElementById('n-prazo-label');
+  if(label) label.textContent=empresa==='SHIELD'?'Duração do contrato':'Parcelamento (parcelas)';
+  const shlSection=document.getElementById('n-shl-section');
+  const cnnSection=document.getElementById('n-cnn-section');
+  if(shlSection) shlSection.style.display=empresa==='SHIELD'?'block':'none';
+  if(cnnSection) cnnSection.style.display=empresa==='Connection'?'block':'none';
+  calcNovoTotal();
+}
+
+function parseVal(id){
+  const el=document.getElementById(id);
+  if(!el) return 0;
+  const raw=(el.value||'').replace(/\./g,'').replace(',','.');
+  return parseFloat(raw)||0;
+}
+function calcNovoTotal(){
+  const empresa=document.getElementById('ne')?.value||'SHIELD';
+  const ticket=parseVal('nt2');
+  const nparcelas=parseInt(document.getElementById('n-parcelas')?.value)||0;
+  if(empresa==='Connection'){
+    const entradaEl=document.getElementById('n-entrada');
+    const vparcelaEl=document.getElementById('n-vparcela');
+    if(!entradaEl||!vparcelaEl) return;
+    const entradaRaw=(entradaEl.value||'').replace(/\./g,'').replace(',','.');
+    const entrada=Math.min(parseFloat(entradaRaw)||0, ticket);
+    // Sempre recalcular parcela com base no ticket - entrada
+    let vparcela=0;
+    if(nparcelas>0 && ticket>0){
+      const restante=ticket-entrada;
+      vparcela=restante>0?Math.round((restante/nparcelas)*100)/100:0;
+      vparcelaEl.value=vparcela;
+    }
+    const total=entrada+(vparcela*nparcelas);
+    const el=document.getElementById('n-cnn-total');
+    if(el) el.textContent='Total: '+fmt(Math.round(total))+(nparcelas>0?' (entrada '+fmt(entrada)+' + '+nparcelas+'x de '+fmt(vparcela)+')':'');
+  }
+}
+function onNovoPrazoChange(val){
+  const el=document.getElementById('n-parcelas-outro');
+  if(el) el.style.display=val==='outro'?'block':'none';
+}
+function onModalPrazoChange(val){
+  const el=document.getElementById('l-prazo-outro');
+  if(el) el.style.display=val==='outro'?'block':'none';
+}
+
 // ─── LEAD SERVICE CHANGE ─────────────────────────────
 function onLeadServiceChange(val){
   const pkgField=document.getElementById('lead-pkg-field');
@@ -1999,6 +2172,26 @@ function editLeadName(id){
   }
   input.addEventListener('blur',saveName);
   input.addEventListener('keydown',e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.value=l.name;input.blur();}});
+}
+
+// ─── VALIDAÇÃO FECHAMENTO ────────────────────────────
+function validarFechamento(l){
+  const faltando=[];
+  if(!l.name||l.name.trim()==='') faltando.push('Nome do cliente');
+  if(!l.cpf_cnpj||l.cpf_cnpj.trim()==='') faltando.push('CPF / CNPJ');
+  if(!l.telefone||l.telefone.trim()==='') faltando.push('Telefone');
+  if(!l.empresa||l.empresa.trim()==='') faltando.push('Empresa (SHL ou CNN)');
+  if(!l.ticket||l.ticket<=0) faltando.push('Valor do ticket');
+  if(l.empresa==='Connection'){
+    if(!l.parcelas||l.parcelas==='0') faltando.push('Parcelamento (nº de parcelas)');
+    if(!l.entrada&&l.entrada!==0) faltando.push('Valor de entrada');
+  }
+  return faltando;
+}
+
+function mostrarAvisoFechamento(faltando){
+  const lista=faltando.map(f=>'• '+f).join('\n');
+  toast('⚠️ Preencha os dados antes de fechar:\n'+lista,'err');
 }
 
 // ─── INIT ────────────────────────────────────────────
