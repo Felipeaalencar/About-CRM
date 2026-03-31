@@ -634,7 +634,7 @@ function logout(){
 
 // ─── SUPABASE / STATE ────────────────────────────────
 let vendors=[],leads=[],notes={},clients=[];
-let cfg={warnDays:3,urgDays:7};
+let cfg=(()=>{try{const s=localStorage.getItem('crm_cfg');return s?JSON.parse(s):{warnDays:1,urgDays:3};}catch(e){return {warnDays:1,urgDays:3};}})();
 
 const STAGES=['Novo lead','Em contato','Proposta enviada','Negociação','Fechado','Perdido'];
 const LOSS_REASONS=['Preço alto','Escolheu concorrente','Sem verba no momento','Sem retorno / sumiu','Não tinha interesse real','Outro'];
@@ -924,7 +924,7 @@ function rSettings(){
   if(vmEl) vmEl.innerHTML=USERS.filter(u=>u.vendor_id).map(u=>`<div class="settings-row"><div style="display:flex;align-items:center;gap:10px;flex:1"><div class="av" style="${u.avStyle}">${u.ini}</div><div><div class="settings-name">${u.name}${u.role==='admin'?' <span style="font-size:9px;background:var(--blue-bg);color:var(--blue);padding:1px 6px;border-radius:9px;margin-left:4px">gestor</span>':''}</div><div class="settings-desc">${u.active===false?'Inativo':'Ativo'}</div></div></div><div style="display:flex;gap:6px"><button class="btn btn-sm" onclick="openEditVendor('${u.id}')">Editar</button>${currentUser&&currentUser.id===u.id?'<span style="font-size:10px;color:var(--text3);padding:4px 8px">você</span>':`<button class="btn btn-sm" style="color:${u.active===false?'var(--green)':'var(--red)'}" onclick="toggleVendor('${u.id}')">${u.active===false?'Ativar':'Inativar'}</button><button class="btn btn-sm" style="color:var(--red);opacity:.6" onclick="deleteVendor('${u.id}')">Excluir</button>`}</div></div>`).join('');
 }
 
-function saveConfig(){cfg.warnDays=parseInt(document.getElementById('cfg-warn').value)||3;cfg.urgDays=parseInt(document.getElementById('cfg-urg').value)||7;render();}
+function saveConfig(){cfg.warnDays=parseInt(document.getElementById('cfg-warn').value)||1;cfg.urgDays=parseInt(document.getElementById('cfg-urg').value)||3;localStorage.setItem('crm_cfg',JSON.stringify(cfg));render();toast('Configurações salvas');}
 async function updateMeta(vid,val){
   const meta=parseInt(val)||1;
   try{await PATCH(`vendors?id=eq.${vid}`,{meta});vendors.find(v=>v.id===vid).meta=meta;rDashboard();rVendors();toast('Meta atualizada');}
@@ -979,6 +979,19 @@ function openLead(id){
     <div class="field"><div class="field-label">Fase</div>
       <select id="ls" onchange="onStageChange(this.value)" data-prev="${l.stage}">${STAGES.map(s=>`<option${s===l.stage?' selected':''}>${s}</option>`).join('')}</select></div>
 
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px">
+      <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">💰 Composição do valor</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="field" style="margin:0"><div class="field-label">Valor produtos (R$)</div>
+          <input id="l-vprod" type="number" value="${l.valor_produtos||0}" placeholder="0" ${canEdit?'':'disabled'}></div>
+        <div class="field" style="margin:0"><div class="field-label">Mão de obra (R$)</div>
+          <input id="l-vmob" type="number" value="${l.valor_mao_obra||0}" placeholder="0" ${canEdit?'':'disabled'}></div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">
+        Total: <strong style="color:var(--text)">${fmt((l.valor_produtos||0)+(l.valor_mao_obra||0))}</strong>
+        ${(l.valor_produtos||0)+(l.valor_mao_obra||0)>0&&((l.valor_produtos||0)+(l.valor_mao_obra||0))!==(l.ticket||0)?'<span style="color:var(--amber)"> · ticket estimado: '+fmt(l.ticket||0)+'</span>':''}
+      </div>
+    </div>
     <div class="field"><div class="field-label">Próximo contato</div>
       <input id="ln" value="${l.next_contact||''}" placeholder="Ex: Ligar na segunda"></div>
     <div class="field"><div class="field-label">Tipo de atividade</div>
@@ -1076,7 +1089,7 @@ async function saveLead(id){
     const svcVal=document.getElementById('lsvc')?.value||l.service;
 const service=svcVal==='Pacote de Tecnologia'?getLeadPkgLabel():svcVal;
     await PATCH('leads?id=eq.'+id,{stage,next_contact:next,vendor_id,empresa,service,cpf_cnpj,telefone,email,endereco,days:0,updated_at:new Date().toISOString()});
-    const l=leads.find(x=>x.id===id);l.stage=stage;l.next_contact=next;l.vendor_id=vendor_id;l.empresa=empresa;l.service=service;l.cpf_cnpj=cpf_cnpj;l.telefone=telefone;l.email=email;l.endereco=endereco;l.days=0;
+    const l=leads.find(x=>x.id===id);l.stage=stage;l.next_contact=next;l.vendor_id=vendor_id;l.empresa=empresa;l.service=service;l.cpf_cnpj=cpf_cnpj;l.telefone=telefone;l.email=email;l.endereco=endereco;l.valor_produtos=valor_produtos;l.valor_mao_obra=valor_mao_obra;l.days=0;
     if(txt){const n=await POST('lead_notes',{lead_id:id,type,text:txt});if(!notes[id])notes[id]=[];notes[id].push(n[0]);}
     cm('ov1');render();toast('Lead atualizado');
   }catch(e){toast('Erro: '+e.message,'err');}
@@ -1285,16 +1298,23 @@ function calcComissao(lead){
   const empresa = lead.empresa||'SHIELD';
   const vendor = vendors.find(v=>v.id===lead.vendor_id);
 
+  // Definir base de cálculo: ticket total ou só produtos
+  const base_tipo = vendor&&vendor.comissao_base ? vendor.comissao_base : 'ticket_total';
+  const valor_produtos = lead.valor_produtos||0;
+  const valor_mao_obra = lead.valor_mao_obra||0;
+  const base = base_tipo==='valor_produtos' && valor_produtos>0 ? valor_produtos : ticket;
+  const base_label = base_tipo==='valor_produtos' ? ' (só produtos)' : '';
+
   if(empresa==='Connection'){
     const pct = vendor&&vendor.comissao_cnn!=null ? parseFloat(vendor.comissao_cnn) : 5;
     if(pct===0) return {valor:0, label:'Sem comissão — CNN'};
-    return {valor:Math.round(ticket*(pct/100)), label:pct+'% — Connection'};
+    return {valor:Math.round(base*(pct/100)), label:pct+'% — Connection'+base_label};
   }
 
   // SHIELD
   const shl = vendor&&vendor.comissao_shl ? vendor.comissao_shl : 'primeira_parcela';
   if(shl==='sem_comissao') return {valor:0, label:'Sem comissão — SHL'};
-  return {valor:ticket, label:'1ª parcela — SHIELD'};
+  return {valor:base, label:'1ª parcela — SHIELD'+base_label};
 }
 function initComMes(){
   const sel=document.getElementById('com-mes');
@@ -1482,7 +1502,7 @@ function rGame(){
 
 // ─── GESTÃO DE VENDEDORES ────────────────────────────
 function openNewVendor(){
-  document.getElementById('modal2').innerHTML='<div class="modal-hd"><div class="modal-title">Novo vendedor</div><button class="close-btn" onclick="cm(\'ov2\')">✕</button></div><div class="field"><div class="field-label">Nome completo</div><input id="nv-name" placeholder="Ex: João Silva"></div><div class="field"><div class="field-label">Iniciais (2 letras)</div><input id="nv-ini" maxlength="2" placeholder="JS" style="text-transform:uppercase"></div><div class="field"><div class="field-label">Perfil</div><select id="nv-role"><option value="vendor">Vendedor</option><option value="admin">Gestor — acesso total</option></select></div><div class="field"><div class="field-label">Meta mensal</div><input id="nv-meta" type="number" value="5" min="1"></div><div class="field"><div class="field-label">PIN (4 dígitos)</div><input id="nv-pin" type="text" maxlength="4" placeholder="5678"></div><button class="btn btn-primary" style="width:100%;padding:10px" onclick="saveNewVendor()">Criar vendedor</button>';
+  document.getElementById('modal2').innerHTML='<div class="modal-hd"><div class="modal-title">Novo vendedor</div><button class="close-btn" onclick="cm(\'ov2\')">✕</button></div><div class="field"><div class="field-label">Nome completo</div><input id="nv-name" placeholder="Ex: João Silva"></div><div class="field"><div class="field-label">Iniciais (2 letras)</div><input id="nv-ini" maxlength="2" placeholder="JS" style="text-transform:uppercase"></div><div class="field"><div class="field-label">Perfil</div><select id="nv-role"><option value="vendor">Vendedor</option><option value="admin">Gestor — acesso total</option></select></div><div class="field"><div class="field-label">Meta mensal</div><input id="nv-meta" type="number" value="5" min="1"></div><div class="field"><div class="field-label">PIN (4 dígitos)</div><input id="nv-pin" type="text" maxlength="4" placeholder="5678"></div><div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px"><div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📱 Contato</div><div class="field" style="margin:0"><div class="field-label">WhatsApp (com DDD, só números)</div><input id="nv-tel" type="text" placeholder="Ex: 48999999999"></div></div><div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px"><div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">💰 Regras de comissão</div><div class="field" style="margin-bottom:8px"><div class="field-label">Comissão SHL</div><select id="nv-com-shl"><option value="primeira_parcela">1ª parcela integral</option><option value="sem_comissao">Sem comissão</option></select></div><div class="field" style="margin:0"><div class="field-label">Comissão CNN %</div><div style="display:flex;align-items:center;gap:8px"><input id="nv-com-cnn" type="number" min="0" max="100" step="0.5" value="5" style="width:80px"><span style="font-size:12px;color:var(--text3)">% &nbsp;(0 = sem comissão)</span></div></div><div class="field" style="margin-top:8px"><div class="field-label">Base de cálculo da comissão</div><select id="nv-com-base"><option value="ticket_total">Ticket total (produtos + mão de obra)</option><option value="valor_produtos">Somente produtos (sem mão de obra)</option></select></div></div><button class="btn btn-primary" style="width:100%;padding:10px" onclick="saveNewVendor()">Criar vendedor</button>';
   document.getElementById('ov2').classList.add('on');
 }
 async function saveNewVendor(){
@@ -1498,7 +1518,11 @@ async function saveNewVendor(){
   const colorIdx=USERS.filter(u=>u.vendor_id).length%COLORS_POOL.length;
   const cd=COLORS_POOL[colorIdx];
   try{
-    const r=await POST('vendors',{id,name,ini,color:cd.color,meta,pin,role});
+    const telefone=(document.getElementById('nv-tel')?.value||'').trim().replace(/\D/g,'');
+      const comissao_shl=document.getElementById('nv-com-shl')?.value||'primeira_parcela';
+      const comissao_cnn=parseFloat(document.getElementById('nv-com-cnn')?.value)||0;
+      const comissao_base=document.getElementById('nv-com-base')?.value||'ticket_total';
+      const r=await POST('vendors',{id,name,ini,color:cd.color,meta,pin,role,telefone,comissao_shl,comissao_cnn,comissao_base});
     vendors.push(r[0]);
     USERS.push({id,name,role,vendor_id:id,pin,ini,color:cd.color,avStyle:cd.avStyle,active:true});
     cm('ov2');render();renderLogin();toast(name+' adicionado!');
@@ -1527,6 +1551,30 @@ function openEditVendor(uid){
       <input id="ev-pin" type="text" maxlength="4" value="${u.pin}"></div>
     <div class="field"><div class="field-label">WhatsApp (com DDD, só números)</div>
       <input id="ev-tel" type="text" placeholder="Ex: 48999999999" value="${v.telefone||''}"></div>
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px">
+      <div style="font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">💰 Regras de comissão</div>
+      <div class="field" style="margin-bottom:8px">
+        <div class="field-label">Comissão SHL (Portaria, Seg. Eletrônica...)</div>
+        <select id="ev-com-shl">
+          <option value="primeira_parcela" ${(v.comissao_shl||'primeira_parcela')==='primeira_parcela'?'selected':''}>1ª parcela integral</option>
+          <option value="sem_comissao" ${v.comissao_shl==='sem_comissao'?'selected':''}>Sem comissão</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:8px">
+        <div class="field-label">Comissão CNN % (Pacote Tec, Drone, Controle Acesso...)</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input id="ev-com-cnn" type="number" min="0" max="100" step="0.5" value="${v.comissao_cnn!=null?v.comissao_cnn:5}" style="width:80px">
+          <span style="font-size:12px;color:var(--text3)">% &nbsp;(0 = sem comissão)</span>
+        </div>
+      </div>
+      <div class="field" style="margin:0">
+        <div class="field-label">Base de cálculo da comissão</div>
+        <select id="ev-com-base">
+          <option value="ticket_total" ${(v.comissao_base||'ticket_total')==='ticket_total'?'selected':''}>Ticket total (produtos + mão de obra)</option>
+          <option value="valor_produtos" ${v.comissao_base==='valor_produtos'?'selected':''}>Somente produtos (sem mão de obra)</option>
+        </select>
+      </div>
+    </div>
     <button class="btn btn-primary" style="width:100%;padding:10px" onclick="saveEditVendor('${uid}')">Salvar</button>`;
   document.getElementById('ov2').classList.add('on');
 }
@@ -1539,10 +1587,11 @@ async function saveEditVendor(uid){
   const telefone=(document.getElementById('ev-tel')?.value||'').trim().replace(/\D/g,'');
   const comissao_shl=document.getElementById('ev-com-shl')?.value||'primeira_parcela';
   const comissao_cnn=parseFloat(document.getElementById('ev-com-cnn')?.value)||0;
+  const comissao_base=document.getElementById('ev-com-base')?.value||'ticket_total';
   if(!name||ini.length!==2||!/^\d{4}$/.test(pin)){toast('Verifique os campos','err');return;}
   try{
-    await PATCH('vendors?id=eq.'+uid,{name,ini,meta,role,pin,telefone,comissao_shl,comissao_cnn});
-    const v=vendors.find(x=>x.id===uid);v.name=name;v.ini=ini;v.meta=meta;v.telefone=telefone;v.comissao_shl=comissao_shl;v.comissao_cnn=comissao_cnn;
+    await PATCH('vendors?id=eq.'+uid,{name,ini,meta,role,pin,telefone,comissao_shl,comissao_cnn,comissao_base});
+    const v=vendors.find(x=>x.id===uid);v.name=name;v.ini=ini;v.meta=meta;v.telefone=telefone;v.comissao_shl=comissao_shl;v.comissao_cnn=comissao_cnn;v.comissao_base=comissao_base;
     const u=USERS.find(x=>x.id===uid);u.name=name;u.ini=ini;u.pin=pin;u.role=role;
     cm('ov2');render();renderLogin();toast('Vendedor atualizado!');
   }catch(e){toast('Erro: '+e.message,'err');}
