@@ -2,8 +2,8 @@
 // 1) recebe o "Compartilhar" do WhatsApp (POST ./share) e guarda no IndexedDB
 // 2) cache do app para abrir offline
 // 3) abre o app ao tocar numa notificação de lembrete
-const CACHE = 'about-inbox-v1';
-const ARQUIVOS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
+const CACHE = 'about-inbox-v2';
+const ARQUIVOS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './logo.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));

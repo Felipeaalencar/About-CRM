@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <title>About Inbox</title>
-<meta name="theme-color" content="#0d1117">
+<meta name="theme-color" content="#0a0614">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -16,10 +16,10 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0d1117;--bg2:#161c26;--bg3:#1c2333;--bg4:#232d40;
+  --bg:#0a0614;--bg2:#141020;--bg3:#1b1629;--bg4:#251e36;
   --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.13);
   --text:#dde3ee;--text2:#8b97a8;--text3:#5a6577;
-  --blue:#3b82f6;--blue2:#60a5fa;--blue-bg:rgba(59,130,246,.12);
+  --blue:#8b4cf2;--blue2:#b18cff;--blue-bg:rgba(139,76,242,.14);
   --green:#22c55e;--green-bg:rgba(34,197,94,.12);
   --amber:#f59e0b;--amber-bg:rgba(245,158,11,.12);
   --red:#ef4444;--red-bg:rgba(239,68,68,.12);
@@ -44,12 +44,12 @@ button{cursor:pointer;border:0;background:none}
 svg.i{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
 /* bottom nav */
-.nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(13,17,23,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:6px 8px calc(6px + var(--safe-b))}
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:20;background:rgba(10,6,20,.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:6px 8px calc(6px + var(--safe-b))}
 .nav-in{max-width:620px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);align-items:center}
 .nav button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--text3);padding:6px 0;position:relative}
 .nav button.on{color:var(--blue2)}
 .nav .badge{position:absolute;top:2px;left:calc(50% + 6px);background:var(--red);color:#fff;font-size:10px;font-weight:700;border-radius:9px;min-width:17px;height:17px;display:grid;place-items:center;padding:0 4px}
-.nav .plus{width:54px;height:54px;border-radius:18px;background:var(--blue);color:#fff;display:grid;place-items:center;margin:-20px auto 0;box-shadow:0 8px 24px rgba(59,130,246,.45)}
+.nav .plus{width:54px;height:54px;border-radius:18px;background:var(--blue);color:#fff;display:grid;place-items:center;margin:-20px auto 0;box-shadow:0 8px 24px rgba(139,76,242,.45)}
 .nav .plus svg{width:26px;height:26px;stroke-width:2.2}
 
 /* cards */
@@ -156,7 +156,7 @@ textarea.in-txt{resize:vertical;min-height:80px}
 select.in-txt{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238b97a8' fill='none' stroke-width='1.6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:30px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .msg{white-space:pre-wrap;word-break:break-word;font-size:14px;background:var(--bg3);border-radius:12px;padding:12px;border:1px solid var(--border);max-height:240px;overflow:auto}
-.ia{background:linear-gradient(135deg,rgba(59,130,246,.12),rgba(168,85,247,.08));border:1px solid rgba(96,165,250,.25);border-radius:var(--rl);padding:14px}
+.ia{background:linear-gradient(135deg,rgba(139,76,242,.16),rgba(139,76,242,.05));border:1px solid rgba(177,140,255,.28);border-radius:var(--rl);padding:14px}
 .ia .hd{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--blue2);margin-bottom:8px}
 .ia p{font-size:14.5px}
 .ia .next{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);font-size:14px}
@@ -179,11 +179,11 @@ select.in-txt{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xm
 .send{width:44px;height:44px;border-radius:13px;background:var(--blue);color:#fff;display:grid;place-items:center;flex:none}
 
 /* bottom action bar on detail */
-.actbar{position:fixed;left:0;right:0;bottom:0;z-index:31;background:rgba(13,17,23,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:10px 16px calc(10px + var(--safe-b))}
+.actbar{position:fixed;left:0;right:0;bottom:0;z-index:31;background:rgba(10,6,20,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--border);padding:10px 16px calc(10px + var(--safe-b))}
 .actbar .in2{max-width:620px;margin:0 auto;display:flex;gap:8px}
 
 /* recorder */
-.rec{position:fixed;inset:0;z-index:60;background:radial-gradient(120% 80% at 50% 0%,#1b2540,#0d1117 60%);display:none;flex-direction:column;padding:calc(var(--safe-t) + 20px) 20px calc(24px + var(--safe-b))}
+.rec{position:fixed;inset:0;z-index:60;background:radial-gradient(120% 80% at 50% 0%,#24154a,#0a0614 60%);display:none;flex-direction:column;padding:calc(var(--safe-t) + 20px) 20px calc(24px + var(--safe-b))}
 .rec.on{display:flex}
 .rec .in3{max-width:560px;width:100%;margin:0 auto;display:flex;flex-direction:column;flex:1;min-height:0}
 .rec .lbl{font-size:13px;color:var(--text2);text-align:center}
@@ -459,7 +459,8 @@ function vHoje(){
   const proximos=itens.filter(it=>ATIVOS.includes(it.status)&&it.lembrete&&new Date(it.lembrete)>amanha).sort((a,b)=>a.lembrete.localeCompare(b.lembrete)).slice(0,5);
   const sec=(t,arr,vazio)=>arr.length?`<div class="sec"><div class="sec-h"><h2>${t}</h2><span class="n">${arr.length}</span></div>${arr.map(x=>cardItem(x)).join('')}</div>`:(vazio||'');
   const nada=!atras.length&&!hoje.length&&!parados.length&&!novos.length&&!proximos.length;
-  return `<div class="top"><h1>${saud}, Felipe<div class="sub">${DIAS_LONGOS[d.getDay()]}, ${pad(d.getDate())}/${pad(d.getMonth()+1)}</div></h1></div>
+  return `<img src="logo.png" alt="About Inbox" style="height:24px;margin:14px 0 -6px -2px;display:block">
+  <div class="top"><h1>${saud}, Felipe<div class="sub">${DIAS_LONGOS[d.getDay()]}, ${pad(d.getDate())}/${pad(d.getMonth()+1)}</div></h1></div>
   <div class="tiles">
     <button class="tile red" onclick="ir('inbox')"><div class="v">${atras.length}</div><div class="l">Atrasados</div></button>
     <button class="tile amber" onclick="ir('inbox')"><div class="v">${hoje.length}</div><div class="l">Para hoje</div></button>
@@ -979,7 +980,7 @@ function vAjustes(){
   const instalado=matchMedia('(display-mode: standalone)').matches||navigator.standalone;
   const ios=/iphone|ipad|ipod/i.test(navigator.userAgent);
   return `<div class="top"><h1>Ajustes</h1></div>
-  ${!instalado?`<div class="card" style="border-color:rgba(96,165,250,.35)"><b>📲 Instale o app</b><p class="small muted" style="margin-top:4px">${ios?'No Safari: toque em <b>Compartilhar</b> → <b>Adicionar à Tela de Início</b>.':'No Chrome: menu ⋮ → <b>Instalar app</b> (ou <b>Adicionar à tela inicial</b>). Só depois de instalado o <b>Inbox</b> aparece no "Compartilhar" do WhatsApp.'}</p>${instalarEvt?`<button class="btn primary sm" style="margin-top:10px" onclick="instalar()">Instalar agora</button>`:''}</div>`:''}
+  ${!instalado?`<div class="card" style="border-color:rgba(177,140,255,.35)"><b>📲 Instale o app</b><p class="small muted" style="margin-top:4px">${ios?'No Safari: toque em <b>Compartilhar</b> → <b>Adicionar à Tela de Início</b>.':'No Chrome: menu ⋮ → <b>Instalar app</b> (ou <b>Adicionar à tela inicial</b>). Só depois de instalado o <b>Inbox</b> aparece no "Compartilhar" do WhatsApp.'}</p>${instalarEvt?`<button class="btn primary sm" style="margin-top:10px" onclick="instalar()">Instalar agora</button>`:''}</div>`:''}
   <div class="sec"><div class="sec-h"><h2>Como mandar do WhatsApp</h2></div>
     <div class="card"><b>Android</b><ol class="steps"><li>No WhatsApp, <b>segure a mensagem</b> (pode selecionar várias).</li><li>Toque em <b>⋮</b> → <b>Compartilhar</b> (ou o ícone de compartilhar).</li><li>Escolha <b>Inbox</b>. Pronto: a demanda abre aqui já com o resumo da IA.</li></ol>
     <p class="tiny muted">Funciona com áudio, foto e PDF também: segure o áudio → Compartilhar → Inbox.</p></div>
